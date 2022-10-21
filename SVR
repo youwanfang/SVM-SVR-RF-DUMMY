@@ -1,0 +1,71 @@
+import numpy as np
+import pandas as pd
+from sklearn.svm import SVR #导入svm函数
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import KFold, GridSearchCV, train_test_split
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
+# from sklearn.datasets import load_boston  #导入波士顿房价
+
+# 导入数据
+data = pd.read_excel("C:/Users/YWF/Desktop/EC-input.xlsx", sheet_name=1)
+data
+
+# 指定特征x和label y
+x = data.iloc[:,1:-1].values
+y = data.iloc[:, -1].values
+# 检查数据
+print(x[:5])
+print(y)
+print(x.shape,y.shape)
+
+# 划分测试集和训练集
+Xtrain, Xtest, Ytrain, Ytest = train_test_split(x,y,test_size=0.2,random_state=999)
+
+# reshape y
+Ytest = np.reshape(Ytest, (-1, 1))
+Ytrain = np.reshape(Ytrain, (-1, 1))
+
+# StandardScaler x
+ss_X = StandardScaler()
+ss_X.fit(Xtrain)
+Xtrain = ss_X.transform(Xtrain)
+Xtest = ss_X.transform(Xtest)
+
+# SVR寻参
+model = SVR()
+params = [
+	{'kernel':['linear'],'C':[1,10,100,1000]},
+	{'kernel':['poly'],'C':[1,10,100],'degree':[2,3]},
+	{'kernel':['rbf'],'C':[1,10,100,1000], 'gamma':[1,0.1, 0.01, 0.001]}]
+model = GridSearchCV(estimator=model, param_grid=params, cv=8)
+model.fit(Xtrain,Ytrain)
+
+# 网格搜索训练后的副产品
+print("模型的最优参数：",model.best_params_)
+print("训练集最优R2：",model.best_score_)
+print("最优模型对象：",model.best_estimator_)
+
+# 输出网格搜索的每组超参数的数据，根据变化趋势细调参数
+for p, s in zip(model.cv_results_['params'],
+	model.cv_results_['mean_test_score']):
+	print(p, s)
+
+# 得到最优参数后，训练
+best_model = SVR(kernel='rbf',param_grid) #修改
+best_model.fit(Xtrain, Ytrain)
+
+# 预测
+Ytest_predict = best_model.predict(Xtest)
+Ytest_predict = np.reshape(Ytest_predict, (-1, 1))
+
+# 以下开始评价,使用r2__score模块，并输出评估结果，拟合程度，R2决定系数，衡量模型预测能力好坏（真实与预测的相关程度百分比）
+print('The value of R-squared of kernal=rbf is', r2_score(Ytest, Ytest_predict))
+# 使用mean_squared_error模块，输出评估结果，均方误差
+print('The mean squared error of kernal=rbf is', mean_squared_error(Ytest, Ytest_predict))
+# 使用mean_absolute_error模块，输出评估结果，平均绝对误差
+print('The mean absolute error of kernal=rbf is', mean_absolute_error(Ytest, Ytest_predict))
+
+
+ROC曲线作图的部分？？？
+

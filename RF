@@ -1,0 +1,88 @@
+import numpy as np
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import GridSearchCV, train_test_split
+from sklearn.metrics import accuracy_score
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.datasets import load_iris  #导入鸢尾花
+
+# 导入数据
+# data = pd.read_excel("C:/Users/YWF/Desktop/SVM-input.xlsx", sheet_name=1)
+# data
+iris = load_iris()
+
+# 指定特征x和label y
+# x = data.iloc[:,1:-1].values
+# y = data.iloc[:, -1].values
+x = iris.data
+y = iris.target
+
+# 检查数据
+print(x[:5])
+print(y)
+print(x.shape,y.shape)
+
+# 划分测试集和训练集
+Xtrain, Xtest, Ytrain, Ytest = train_test_split(x,y,test_size=0.2,random_state=999)
+
+# reshape y
+# Ytest = np.reshape(Ytest, (-1, 1))
+# Ytrain = np.reshape(Ytrain, (-1, 1))
+
+# StandardScaler x
+ss_X = StandardScaler()
+ss_X.fit(Xtrain)
+Xtrain = ss_X.transform(Xtrain)
+Xtest = ss_X.transform(Xtest)
+
+# RF寻参
+model = RandomForestClassifier(random_state=0)
+params = [{'n_estimators': [10,100,1000]},
+	{'max_depth': range(5, 100, 5)},
+	{'min_samples_split': range(2, 30, 2)}]
+model = GridSearchCV(estimator=model, param_grid=params, cv=8)
+model.fit(Xtrain,Ytrain)
+
+params = {'n_estimators': [10,100,1000], 'max_depth': range(5, 100, 5), 'min_samples_split': range(2, 30, 2)}
+
+# 网格搜索训练后的副产品
+print("模型的最优参数：",model.best_params_)
+print("训练集最优accuracy：",model.best_score_)
+print("最优模型对象：",model.best_estimator_)
+
+# 输出网格搜索的每组超参数的数据，根据变化趋势细调参数
+for p, s in zip(model.cv_results_['params'],
+	model.cv_results_['mean_test_score']):
+	print(p, s)
+
+# 得到最优参数后，训练
+best_model = RandomForestClassifier(param_grid) #修改
+best_model.fit(Xtrain, Ytrain)
+
+# 分类及初步评价
+Ytest_predict = best_model.predict(Xtest)#每个test的分类标签结果
+print("每个test被分为1和2类的可能性：",best_model.predict_proba(Xtest))
+print("测试集accuracy：",best_model.score(Xtest,Ytest))
+
+# 作图，ROC图
+from sklearn.metrics import plot_roc_curve
+import matplotlib.pyplot as plt
+
+test = plot_roc_curve(best_model,Xtest,Ytest)
+plt.savefig("RF.svg", format="svg")
+
+# 作图，混淆矩阵图
+from sklearn.metrics import plot_confusion_matrix
+
+titles_options = [("Confusion matrix, without normalization", None),
+                  ("Normalized confusion matrix", 'true')]
+for title, normalize in titles_options:
+    disp = plot_confusion_matrix(best_model, Xtest, Ytest,
+                                 cmap=plt.cm.Blues,
+                                 normalize=normalize)
+    disp.ax_.set_title(title)
+
+    print(title)
+    print(disp.confusion_matrix)
+
+plt.savefig("RF_confusion.svg", format="svg")
